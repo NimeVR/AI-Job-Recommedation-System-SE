@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const JobSchema = new mongoose.Schema({
+const CreatedJobSchema = new mongoose.Schema({
     companyName: { type: String, required: true },
     jobDescription: { type: String, required: true },
     Category: { type: String, required: true },
@@ -9,10 +9,10 @@ const JobSchema = new mongoose.Schema({
     Workplace: { type: String, required: true },
     Location: { type: String, required: true },
     Department: { type: String, required: true },
-    postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    isEmployerCreated: { type: Boolean, default: false } // Flag to distinguish collections
+    postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
-    timestamps: true
+    timestamps: true,
+    collection: 'created_jobs' // Explicitly set collection name
 });
 
-module.exports = mongoose.model('Job', JobSchema);
+module.exports = mongoose.model('CreatedJob', CreatedJobSchema);

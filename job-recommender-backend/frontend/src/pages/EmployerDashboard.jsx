@@ -1,3 +1,4 @@
+// frontend/src/pages/EmployerDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -6,17 +7,90 @@ import Toast from '../components/common/Toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import TagInput from '../components/common/TagInput';
-import JobCard from '../components/jobs/JobCard';
-import { Briefcase, Plus, Eye } from 'lucide-react';
+import ApplicantsView from '../components/employer/ApplicantsView';
+import { Briefcase, Plus, Eye, Users, Building2, MapPin, Clock } from 'lucide-react';
+
+const EmployerJobCard = ({ job, applicationCount, onViewApplicants }) => {
+  const jobTitle = job.title || job.Category;
+  const jobSkills = job.skills || job.skillsRequired || [];
+  const jobId = job.job_id || job._id;
+
+  return (
+    <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow p-6 border border-gray-200 relative">
+      {applicationCount > 0 && (
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg animate-pulse z-10">
+          {applicationCount}
+        </div>
+      )}
+      
+      <h3 className="text-xl font-bold text-gray-800 mb-3">{jobTitle}</h3>
+      
+      <div className="flex items-center gap-2 text-gray-600 mb-2">
+        <Building2 size={16} />
+        <span className="font-medium">{job.companyName}</span>
+      </div>
+      
+      <div className="flex items-center gap-2 text-gray-600 mb-3">
+        <MapPin size={16} />
+        <span>{job.Location}</span>
+      </div>
+      
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <Clock size={16} className="text-gray-600" />
+        <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+          {job.Type}
+        </span>
+        <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+          {job.Workplace}
+        </span>
+        {job.Department && (
+          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+            {job.Department}
+          </span>
+        )}
+      </div>
+      
+      <div className="mb-3">
+        <p className="text-sm text-gray-600 line-clamp-2">{job.jobDescription}</p>
+      </div>
+      
+      <div className="flex flex-wrap gap-2 mb-4">
+        {jobSkills.slice(0, 3).map((skill, idx) => {
+          const skillName = typeof skill === 'string' ? skill : skill.name;
+          return (
+            <span key={idx} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-sm">
+              {skillName}
+            </span>
+          );
+        })}
+        {jobSkills.length > 3 && (
+          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
+            +{jobSkills.length - 3}
+          </span>
+        )}
+      </div>
+
+      <button
+        onClick={() => onViewApplicants(job)}
+        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+      >
+        <Users size={18} />
+        View {applicationCount} {applicationCount === 1 ? 'Applicant' : 'Applicants'}
+      </button>
+    </div>
+  );
+};
 
 const EmployerDashboard = ({ onNavigate }) => {
   const { logout, token } = useAuth();
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('list'); // 'list' or 'create'
+  const [view, setView] = useState('list'); // 'list', 'create', or 'applicants'
   const [jobs, setJobs] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [applicationCounts, setApplicationCounts] = useState({});
+  const [selectedJob, setSelectedJob] = useState(null);
   
   const [jobData, setJobData] = useState({
     companyName: '',
@@ -33,6 +107,12 @@ const EmployerDashboard = ({ onNavigate }) => {
     fetchAllJobs();
   }, []);
 
+  useEffect(() => {
+    if (jobs.length > 0) {
+      fetchApplicationCounts();
+    }
+  }, [jobs]);
+
   const fetchAllJobs = async () => {
     setLoadingJobs(true);
     try {
@@ -45,13 +125,27 @@ const EmployerDashboard = ({ onNavigate }) => {
     setLoadingJobs(false);
   };
 
+  const fetchApplicationCounts = async () => {
+    const counts = {};
+    for (const job of jobs) {
+      try {
+        const jobId = job.job_id || job._id;
+        const result = await api.getApplicationCount(jobId);
+        counts[jobId] = result.count || 0;
+      } catch (error) {
+        console.error(`Error fetching count for job ${job._id}:`, error);
+        counts[job._id] = 0;
+      }
+    }
+    setApplicationCounts(counts);
+  };
+
   const handleLogout = () => {
     logout();
     onNavigate('home');
   };
 
   const handleSubmit = async () => {
-    // Validation
     if (!jobData.companyName || !jobData.Category || !jobData.jobDescription) {
       setToast({ message: 'Please fill all required fields', type: 'error' });
       return;
@@ -73,7 +167,6 @@ const EmployerDashboard = ({ onNavigate }) => {
       if (result._id || result.companyName) {
         setToast({ message: 'Job posted successfully!', type: 'success' });
         
-        // Reset form
         setJobData({
           companyName: '',
           jobDescription: '',
@@ -85,13 +178,9 @@ const EmployerDashboard = ({ onNavigate }) => {
           Department: '',
         });
 
-        // Show success modal with view jobs button
         setShowSuccessModal(true);
-        
-        // Refresh jobs list
         await fetchAllJobs();
         
-        // Auto-redirect after 3 seconds if user doesn't click
         setTimeout(() => {
           setShowSuccessModal(false);
           setView('list');
@@ -111,11 +200,23 @@ const EmployerDashboard = ({ onNavigate }) => {
     setView('list');
   };
 
+  const handleViewApplicants = (job) => {
+    setSelectedJob(job);
+    setView('applicants');
+  };
+
+  const handleBackToList = () => {
+    setView('list');
+    setSelectedJob(null);
+    fetchApplicationCounts(); // Refresh counts when coming back
+  };
+
+  const totalApplications = Object.values(applicationCounts).reduce((sum, count) => sum + count, 0);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center animate-scale-in">
@@ -148,31 +249,53 @@ const EmployerDashboard = ({ onNavigate }) => {
       <Navbar onLogout={handleLogout} />
       
       <div className="max-w-7xl mx-auto p-6">
-        {/* Toggle Buttons */}
-        <div className="flex gap-4 mb-6">
+        {/* Navigation */}
+        {view !== 'applicants' ? (
+          <div className="flex gap-4 mb-6 flex-wrap">
+            <button
+              onClick={() => setView('list')}
+              className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 relative ${
+                view === 'list'
+                  ? 'bg-indigo-600 text-white shadow-lg'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <Briefcase size={20} />
+              My Job Posts ({jobs.length})
+              {totalApplications > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                  {totalApplications}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setView('create')}
+              className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
+                view === 'create'
+                  ? 'bg-indigo-600 text-white shadow-lg'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <Plus size={20} />
+              Create New Job
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={() => setView('list')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
-              view === 'list'
-                ? 'bg-indigo-600 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
+            onClick={handleBackToList}
+            className="mb-6 px-6 py-3 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center gap-2 shadow-md"
           >
-            <Briefcase size={20} />
-            My Job Posts ({jobs.length})
+            ← Back to My Jobs
           </button>
-          <button
-            onClick={() => setView('create')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
-              view === 'create'
-                ? 'bg-indigo-600 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Plus size={20} />
-            Create New Job
-          </button>
-        </div>
+        )}
+
+        {/* Applicants View */}
+        {view === 'applicants' && selectedJob && (
+          <ApplicantsView
+            jobId={selectedJob.job_id || selectedJob._id}
+            jobTitle={selectedJob.title || selectedJob.Category}
+          />
+        )}
 
         {/* Create Job View */}
         {view === 'create' && (
@@ -270,7 +393,14 @@ const EmployerDashboard = ({ onNavigate }) => {
         {/* List Jobs View */}
         {view === 'list' && (
           <div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">My Job Posts</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">
+              My Job Posts
+              {totalApplications > 0 && (
+                <span className="ml-3 text-red-600 text-lg">
+                  ({totalApplications} new application{totalApplications !== 1 ? 's' : ''})
+                </span>
+              )}
+            </h2>
             
             {loadingJobs ? (
               <div className="text-center py-12">
@@ -288,9 +418,17 @@ const EmployerDashboard = ({ onNavigate }) => {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {jobs.map((job, idx) => (
-                  <JobCard key={job._id || idx} job={job} />
-                ))}
+                {jobs.map((job, idx) => {
+                  const jobId = job.job_id || job._id;
+                  return (
+                    <EmployerJobCard
+                      key={jobId || idx}
+                      job={job}
+                      applicationCount={applicationCounts[jobId] || 0}
+                      onViewApplicants={handleViewApplicants}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

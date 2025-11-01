@@ -1,3 +1,4 @@
+// server/server.js
 const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
@@ -15,7 +16,7 @@ app.use(express.json({ extended: false })); // Allows us to accept JSON data in 
 // Define Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
-
+app.use('/api/applications', require('./routes/applicationRoutes')); // NEW
 
 app.get('/', (req, res) => res.send('Node.js API Running'));
 

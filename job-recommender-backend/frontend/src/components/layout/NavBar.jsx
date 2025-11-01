@@ -1,7 +1,7 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
 
-const Navbar = ({ onLogout }) => {
+const NavBar = ({ onLogout }) => {
   return (
     <nav className="bg-white shadow-md px-6 py-4 flex justify-between items-center">
       <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -18,4 +18,4 @@ const Navbar = ({ onLogout }) => {
   );
 };
 
-export default Navbar;
+export default NavBar;
